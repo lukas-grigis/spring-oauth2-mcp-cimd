@@ -1,0 +1,16 @@
+{
+  "name": "spring-oauth2-mcp-cimd-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless end-to-end test: CIMD (URL client_id) + PKCE + federated Keycloak login + scope-gated MCP tool calls.",
+  "scripts": {
+    "test": "tsx e2e.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
+  }
+}
