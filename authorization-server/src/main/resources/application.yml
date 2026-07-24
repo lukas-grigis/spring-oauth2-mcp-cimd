@@ -1,0 +1,89 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: authorization-server
+  # With no explicit profile this app runs as "demo": the CIMD SSRF guard then also allows loopback,
+  # so the locally-served client metadata document is fetchable (see SsrfGuardConfiguration).
+  # Activating any profile explicitly (e.g. SPRING_PROFILES_ACTIVE=prod) replaces this default and
+  # gets the strict guard: private, link-local and loopback ranges all refused.
+  profiles:
+    default: demo
+  threads:
+    virtual:
+      enabled: true
+
+  # JDBC-backed OAuth2 stores live in the `authserver` database (created by support/database).
+  datasource:
+    url: jdbc:postgresql://localhost:5432/authserver
+    username: admin
+    password: admin
+    hikari:
+      maximum-pool-size: 5
+  # Creates the Spring Authorization Server reference tables (registered clients, authorizations, consents).
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+  security:
+    oauth2:
+      # This server is an OAuth2 Authorization Server (issues tokens to the MCP clients)...
+      authorizationserver:
+        issuer: http://localhost:9000
+      # ...AND an OAuth2 client of the upstream IdP (federates the human login). The registration id
+      # below must match app.upstream.registration-id — the one seam that makes the IdP a config choice.
+      client:
+        registration:
+          keycloak:
+            client-id: keycloak
+            client-secret: ${UPSTREAM_CLIENT_SECRET:keycloak-dev-secret}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          keycloak:
+            # Keycloak behind Traefik at /auth (port 80). Must EXACTLY equal Keycloak's advertised issuer.
+            issuer-uri: http://localhost/auth/realms/demo
+            user-name-attribute: sub
+
+app:
+  # The active upstream registration id (the federation seam) — matches the client registration above.
+  upstream:
+    registration-id: keycloak
+  security:
+    # Upstream realm-role names → fixed scope contract (see RoleScopeMapper). Only these names are
+    # configurable, which is what makes the IdP swappable.
+    roles:
+      user-role: user
+      admin-role: admin
+    jwt:
+      # Committed dev-only EC P-256 key so minted tokens (and the resource server's cached JWKS) survive
+      # restarts. DEMO ONLY — generate your own and inject via JWT_SIGNING_KEY in production.
+      # openssl ecparam -name prime256v1 -genkey -noout
+      signing-key-pem: |
+        -----BEGIN EC PRIVATE KEY-----
+        MHcCAQEEIGlXpvj9smQfwpPk7jfRgPNwV1NlGkYByXo3PCgYPRocoAoGCCqGSM49
+        AwEHoUQDQgAEdCN/clWvGDwONa7j7kxkeEJJq4O83h76lid8BgUE/qEsa3XdXOON
+        apacS45pjzBh0FYVIrNOvEM9+9t57Tb89g==
+        -----END EC PRIVATE KEY-----
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+logging:
+  level:
+    dev.lukasgrigis.blog.mcp.authorizationserver: info
+    # Uncomment to watch the role→scope mapping decision on every token mint:
+    # dev.lukasgrigis.blog.mcp.authorizationserver.configuration.ScopeMappingConfiguration: debug

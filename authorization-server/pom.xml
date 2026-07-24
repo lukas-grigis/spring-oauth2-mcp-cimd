@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>dev.lukasgrigis.blog.mcp</groupId>
+    <artifactId>spring-oauth2-mcp-cimd</artifactId>
+    <version>0.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>authorization-server</artifactId>
+  <name>Authorization Server</name>
+  <description>OAuth2 Authorization Server (:9000): accepts Client ID Metadata Documents (CIMD) as client identities,
+    federates the human login to Keycloak, and mints ES256 JWTs scoped from the upstream realm roles
+  </description>
+
+  <dependencies>
+    <!-- Spring Authorization Server: issues tokens, OIDC discovery, JWKS -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-authorization-server</artifactId>
+    </dependency>
+    <!-- OAuth2 client — federates the human login to the upstream IdP (Keycloak in this demo) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-client</artifactId>
+    </dependency>
+    <!-- Servlet web: the authorization-server endpoints + the built-in scope-consent screen
+         (Spring Authorization Server's DefaultConsentPage renders it; no custom template needed). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- HTTP/1.1 back-channel client. Spring Security's auth-code token exchange uses RestClient,
+         whose factory is detected from the classpath; with no client lib present it falls back to the
+         JDK HttpClient, which defaults to HTTP/2 and attempts an h2c (cleartext HTTP/2) UPGRADE on the
+         first request. The dev Keycloak sits behind Traefik on plain HTTP, where that h2c upgrade hangs
+         — so the token exchange (and thus the whole federated login) stalls. Putting Apache HttpComponents
+         5 on the classpath makes RestClient use it (HTTP/1.1), fixing the hang. Version from the Boot BOM. -->
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
+    </dependency>
+
+    <!-- Boot 4.1's InetAddressFilter/ClientHttpRequestFactoryBuilder/HttpClientSettings — the CIMD
+         metadata fetch is SSRF-guarded with them (see SsrfGuardConfiguration). Not pulled in by any
+         other dependency here; version from the Boot BOM (parent is spring-boot-starter-parent). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-http-client</artifactId>
+    </dependency>
+
+    <!-- MCP authorization-server: Client ID Metadata Documents (CIMD) + RFC 9728/8707 support -->
+    <dependency>
+      <groupId>org.springaicommunity</groupId>
+      <artifactId>mcp-authorization-server-spring-boot</artifactId>
+    </dependency>
+
+    <!-- BouncyCastle: Nimbus needs it to parse the ES256 signing-key PEM. Version from the reactor pom. -->
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+    </dependency>
+
+    <!-- JDBC-backed OAuth2 stores (registered clients, authorizations, consents) on Postgres -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- Schema migration: creates the Spring Authorization Server reference tables -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-liquibase</artifactId>
+    </dependency>
+
+    <!-- Bean Validation: validates the @ConfigurationProperties (roles, JWT, token settings) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <!-- Health probe used by the demo startup wait-loop -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <!-- Generate build-info.properties so /actuator/info reports version + build time -->
+          <execution>
+            <goals>
+              <goal>build-info</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
