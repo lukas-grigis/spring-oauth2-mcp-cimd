@@ -1,0 +1,51 @@
+server:
+  port: 9200
+
+spring:
+  application:
+    name: mcp-server
+  threads:
+    virtual:
+      enabled: true
+  ai:
+    mcp:
+      server:
+        # Streamable HTTP transport; the endpoint defaults to /mcp (point the MCP Inspector there).
+        protocol: STREAMABLE
+        type: SYNC
+        name: spring-oauth2-mcp
+        version: @project.version@
+        instructions: >-
+          A minimal OAuth2-secured MCP server. Call whoami to see your identity and scopes; the note
+          tools (list_notes, create_note, purge_notes) are scope-gated (note:read to list, note:write to
+          create, note:admin to purge), so a tool error means your token lacks that scope.
+
+app:
+  mcp:
+    security:
+      # The authorization server (:9000). Its JWKS is resolved via OIDC discovery EAGERLY at boot,
+      # so the authorization server must be running before this one starts.
+      issuer-uri: http://localhost:9000
+      # RFC 8707 audience binding. The authorization server stamps `aud` with the resource indicator the
+      # client requested (see AccessTokenClaimsConfiguration), so this rejects a token minted for a different
+      # resource — the defence against token pass-through / the confused-deputy problem. MCP clients (the
+      # Inspector, the e2e) send `resource`, so this is on by default.
+      validate-audience: true
+  cors:
+    allowed-origins:
+      - http://localhost:6274
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+logging:
+  level:
+    dev.lukasgrigis.blog.mcp.mcpserver: info
