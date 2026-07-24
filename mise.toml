@@ -81,6 +81,11 @@ OIDC="$(curl -s "$AS/.well-known/openid-configuration")"
 ASMETA="$(curl -s "$AS/.well-known/oauth-authorization-server")"
 echo "$ASMETA" | grep -Eq '"client_id_metadata_document_supported"[[:space:]]*:[[:space:]]*true' && ok "CIMD advertised (client_id_metadata_document_supported: true)" || no "client_id_metadata_document_supported missing in AS metadata"
 [ -n "$ASMETA" ] && ! echo "$ASMETA" | grep -q '"registration_endpoint"' && ok "no registration_endpoint in AS metadata (clients bring a URL client_id instead)" || no "registration_endpoint advertised (or AS metadata unreachable) — this server must not offer registration"
+REGCODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$AS/oauth2/register" -H 'Content-Type: application/json' -d '{"client_name":"probe","redirect_uris":["https://probe.invalid/cb"]}')"
+case "$REGCODE" in
+  4*) ok "POST /oauth2/register refused (HTTP $REGCODE) — registration is not merely unadvertised, the endpoint is not mounted" ;;
+  *)  no "POST /oauth2/register → HTTP $REGCODE (expected 4xx; a live registration endpoint would undermine CIMD-only)" ;;
+esac
 echo "$OIDC" | grep -q 'ES256' && ok "ES256 advertised in OIDC metadata" || no "ES256 not advertised (RS256 default not overridden?)"
 JWKS="$(curl -s "$AS/oauth2/jwks")"
 echo "$JWKS" | grep -q '"kty":"EC"' && echo "$JWKS" | grep -q 'P-256' && ok "JWKS serves an EC P-256 key" || no "JWKS is not an EC P-256 key"
