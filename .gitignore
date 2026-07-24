@@ -1,0 +1,31 @@
+target/
+*.class
+*.jar
+*.war
+*.ear
+.idea/
+*.iml
+
+### Eclipse / m2e / STS ###
+.project
+.classpath
+.settings/
+.apt_generated/
+.factorypath
+.springBeans
+.sts4-cache/
+
+### VS Code ###
+.vscode/
+
+.DS_Store
+*.log
+.logs/
+.env.local
+.env.*.local
+node_modules/
+dist/
+.mise.local.toml
+
+# AI assistant runtime artifacts
+.claude/

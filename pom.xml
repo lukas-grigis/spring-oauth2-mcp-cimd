@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-parent -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.0</version>
+  </parent>
+
+  <groupId>dev.lukasgrigis.blog.mcp</groupId>
+  <artifactId>spring-oauth2-mcp-cimd</artifactId>
+  <version>0.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>spring-oauth2-mcp-cimd</name>
+  <description>An OAuth2-secured MCP server whose Spring Authorization Server accepts Client ID Metadata Documents
+    (CIMD) instead of Dynamic Client Registration, in front of a federated IdP (Keycloak)
+  </description>
+  <url>https://github.com/lukas-grigis/spring-oauth2-mcp-cimd</url>
+  <inceptionYear>2026</inceptionYear>
+
+  <modules>
+    <module>authorization-server</module>
+    <module>mcp-server</module>
+  </modules>
+
+  <properties>
+    <!-- General Project Settings -->
+    <java.version>25</java.version>
+    <maven.compiler.source>${java.version}</maven.compiler.source>
+    <maven.compiler.target>${java.version}</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- Spring AI 2.0.0 (GA, Maven Central) — provides the MCP server starter.
+         https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-bom -->
+    <spring-ai.version>2.0.0</spring-ai.version>
+
+    <!-- Spring AI Community "mcp-security" trio (github.com/spring-ai-community/mcp-security).
+         0.1.13 is built against Spring Boot 4.1.0 + Spring AI 2.0.0 + MCP SDK 2.0.0; Spring Boot 4.1.0
+         manages Spring Security 7.1.0 (which carries PR #18542, the resource-metadata support these
+         artifacts build on). NOTE: these are pre-1.0 community artifacts — bump Spring Boot / Spring AI /
+         MCP SDK / mcp-security together so the versions stay in lock-step.
+         https://mvnrepository.com/artifact/org.springaicommunity/mcp-authorization-server-spring-boot -->
+    <mcp-authorization-server.version>0.1.13</mcp-authorization-server.version>
+    <mcp-server-security.version>0.1.13</mcp-server-security.version>
+
+    <!-- BouncyCastle: Nimbus needs it to parse the ES256 signing-key PEM; not managed by the Boot BOM.
+         https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
+    <bouncycastle.version>1.84</bouncycastle.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- MCP authorization-server support: Client ID Metadata Documents (CIMD) + RFC 9728/8707 (the authorization-server module) -->
+      <dependency>
+        <groupId>org.springaicommunity</groupId>
+        <artifactId>mcp-authorization-server-spring-boot</artifactId>
+        <version>${mcp-authorization-server.version}</version>
+      </dependency>
+      <!-- MCP resource-server security: RFC 9728 PRM + JWKS-backed ES256 validation (the mcp-server module) -->
+      <dependency>
+        <groupId>org.springaicommunity</groupId>
+        <artifactId>mcp-server-security-spring-boot</artifactId>
+        <version>${mcp-server-security.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcpkix-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <!-- Filter resources with @...@ delimiters so @project.version@ resolves in application.yml
+         (the ${...} form is left for Spring's own property placeholders). -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>${maven-resources-plugin.version}</version>
+          <configuration>
+            <delimiters>
+              <delimiter>@</delimiter>
+            </delimiters>
+            <useDefaultDelimiters>false</useDefaultDelimiters>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+</project>

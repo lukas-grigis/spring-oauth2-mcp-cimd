@@ -1,0 +1,191 @@
+[tools]
+java = "25"
+maven = "3"
+node = "24"
+npm = "10"
+
+# ─── Build ───────────────────────────────────────────────────────────
+
+[tasks.build]
+description = "Build both modules"
+run = "mvn clean install -DskipTests"
+
+[tasks.test]
+description = "Run the offline JUnit tests (the role→scope contract + the @PreAuthorize scope gates)"
+run = "mvn clean verify"
+
+# ─── Infra ───────────────────────────────────────────────────────────
+
+[tasks."infra:up"]
+description = "Start Traefik + Postgres + Keycloak (pulls images on first run)"
+dir = "support"
+run = "docker compose up -d"
+
+[tasks."infra:down"]
+description = "Stop infrastructure"
+dir = "support"
+run = "docker compose down"
+
+[tasks."keycloak:setup"]
+description = "Provision the demo realm, roles, client + roles mapper, and users (Admin API over HTTP)"
+depends = ["infra:up"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "==> Waiting for Keycloak (first run pulls the image, be patient)..."
+until curl -sf http://localhost/auth/realms/master > /dev/null 2>&1; do sleep 2; done
+# Keycloak's master realm rejects plain-HTTP admin calls; flip ssl_required to NONE in the DB (dev only),
+# then restart so it takes effect. This lets the Admin-API setup run over HTTP behind Traefik. Resolve
+# container ids by compose label so this survives a custom -p/COMPOSE_PROJECT_NAME.
+DB_ID="$(cd support && docker compose ps -q database)"
+KC_ID="$(cd support && docker compose ps -q keycloak)"
+echo "==> Relaxing master-realm SSL (dev only)..."
+docker exec "$DB_ID" psql -U admin -d keycloak -c "UPDATE realm SET ssl_required = 'NONE' WHERE name = 'master';" > /dev/null
+docker restart "$KC_ID" > /dev/null
+until curl -sf http://localhost/auth/realms/master > /dev/null 2>&1; do sleep 2; done
+echo "==> Provisioning realm + roles + client + users..."
+(cd support/keycloak && npm install --silent && npm run setup)
+"""
+
+# ─── Individual services ─────────────────────────────────────────────
+
+[tasks."authorization-server:start"]
+description = "Start the Authorization Server (:9000)"
+dir = "authorization-server"
+run = "mvn spring-boot:run"
+
+[tasks."mcp-server:start"]
+description = "Start the MCP Server (:9200) — needs the Authorization Server running first"
+dir = "mcp-server"
+run = "mvn spring-boot:run"
+
+# ─── Checks ──────────────────────────────────────────────────────────
+
+[tasks.check]
+description = "Probe a running stack: CIMD advertised (and NO registration endpoint), ES256 JWKS, the MCP 401 + Protected Resource Metadata"
+quiet = true
+run = '''
+#!/usr/bin/env bash
+set -uo pipefail
+AS="http://localhost:9000"
+MCP="http://localhost:9200"
+ok() { echo "  [ OK ] $1"; }
+no() { echo "  [FAIL] $1"; }
+
+echo "======================================================================"
+echo "  spring-oauth2-mcp-cimd — checks"
+echo "======================================================================"
+
+echo; echo "AUTHORIZATION SERVER ($AS)"
+OIDC="$(curl -s "$AS/.well-known/openid-configuration")"
+ASMETA="$(curl -s "$AS/.well-known/oauth-authorization-server")"
+echo "$ASMETA" | grep -Eq '"client_id_metadata_document_supported"[[:space:]]*:[[:space:]]*true' && ok "CIMD advertised (client_id_metadata_document_supported: true)" || no "client_id_metadata_document_supported missing in AS metadata"
+[ -n "$ASMETA" ] && ! echo "$ASMETA" | grep -q '"registration_endpoint"' && ok "no registration_endpoint in AS metadata (clients bring a URL client_id instead)" || no "registration_endpoint advertised (or AS metadata unreachable) — this server must not offer registration"
+echo "$OIDC" | grep -q 'ES256' && ok "ES256 advertised in OIDC metadata" || no "ES256 not advertised (RS256 default not overridden?)"
+JWKS="$(curl -s "$AS/oauth2/jwks")"
+echo "$JWKS" | grep -q '"kty":"EC"' && echo "$JWKS" | grep -q 'P-256' && ok "JWKS serves an EC P-256 key" || no "JWKS is not an EC P-256 key"
+
+echo; echo "MCP SERVER ($MCP)"
+CODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$MCP/mcp" -H 'Content-Type: application/json' -d '{}')"
+[ "$CODE" = "401" ] && ok "unauthenticated /mcp → 401" || no "unauthenticated /mcp → $CODE (expected 401)"
+WWW="$(curl -s -i -X POST "$MCP/mcp" -H 'Content-Type: application/json' -d '{}' | grep -i 'www-authenticate')"
+echo "$WWW" | grep -qi 'resource_metadata' && ok "401 carries WWW-Authenticate → resource_metadata" || no "no resource_metadata pointer on 401"
+PRM="$(curl -s "$MCP/.well-known/oauth-protected-resource/mcp")"
+echo "$PRM" | grep -q "$AS" && ok "Protected Resource Metadata points at the authorization server" || no "PRM missing/!points to AS"
+echo "======================================================================"
+'''
+
+[tasks."test:e2e"]
+description = "Headless end-to-end test: CIMD (URL client_id) + federated login + scope-gated tool calls (needs the stack running)"
+dir = "test"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+npm install --silent
+npm test
+"""
+
+[tasks.inspector]
+description = "Print the MCP-client story: why the Inspector can't drive CIMD yet, and how to watch the flow live"
+quiet = true
+run = '''
+#!/usr/bin/env bash
+cat <<'EOF'
+MCP Inspector and CIMD — the honest status:
+
+  At the time of writing (mid-2026) the MCP Inspector still obtains its client
+  identity via Dynamic Client Registration (RFC 7591): it POSTs to a registration
+  endpoint instead of presenting a URL client_id. This server supports only CIMD
+  and exposes NO registration endpoint, so the Inspector can discover the
+  authorization server but cannot complete the OAuth flow against it.
+
+Watch the CIMD flow headlessly instead (mise run demo already runs it):
+
+    mise run test:e2e
+
+  It authorizes as the demo CIMD client — the client_id IS the URL
+  http://localhost/cimd-client/client.json — then logs in via Keycloak and calls
+  the scope-gated tools:
+
+    alice / alice  (role: user ) → whoami, list_notes, create_note  ✓   purge_notes ✗ (needs note:admin)
+    bob   / bob    (role: admin) → also purge_notes                 ✓
+
+Want a live interactive CIMD client? VS Code is one: it identifies itself with the
+metadata URL https://vscode.dev/oauth/client-metadata.json. Add this MCP server
+(http://localhost:9200/mcp) to VS Code and the authorization server resolves
+VS Code's document over HTTPS exactly the way it resolves the demo client's, then
+sends you through the same Keycloak login.
+EOF
+'''
+
+# ─── Demo ────────────────────────────────────────────────────────────
+
+[tasks.demo]
+description = "One-click demo: build, start infra, provision Keycloak, start both services. Ctrl+C to stop."
+depends = ["build", "keycloak:setup"]
+quiet = true
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(pwd)"
+PIDS=()
+
+cleanup() {
+  echo ""
+  echo "==> Shutting down..."
+  for pid in ${PIDS[@]+"${PIDS[@]}"}; do kill "$pid" 2>/dev/null || true; done
+  wait 2>/dev/null || true
+  (cd "$ROOT/support" && docker compose down) 2>/dev/null || true
+  echo "==> Stopped."
+  exit 0
+}
+trap cleanup INT TERM
+
+mkdir -p "$ROOT/.logs"
+
+# Authorization server first — the MCP server resolves its JWKS at boot, so order matters.
+echo "==> Starting authorization-server (:9000)..."
+(cd "$ROOT/authorization-server" && mvn spring-boot:run) > "$ROOT/.logs/authorization-server.log" 2>&1 &
+PIDS+=($!)
+echo "         waiting for OIDC discovery..."
+until curl -sf http://localhost:9000/.well-known/openid-configuration > /dev/null 2>&1; do sleep 2; done
+
+echo "==> Starting mcp-server (:9200)..."
+(cd "$ROOT/mcp-server" && mvn spring-boot:run) > "$ROOT/.logs/mcp-server.log" 2>&1 &
+PIDS+=($!)
+echo "         waiting for health..."
+until curl -sf http://localhost:9200/actuator/health > /dev/null 2>&1; do sleep 2; done
+
+mise run check
+echo ""
+echo "==> Demonstrating the scope matrix live — running the allowed/denied tool calls for alice and bob"
+echo "    (the CIMD flow: URL client_id → metadata fetch + validation → Keycloak login + consent → scoped tool calls)"
+mise run test:e2e || echo "    (e2e reported a problem — see output above)"
+echo ""
+mise run inspector
+echo ""
+echo "    Logs: tail -f .logs/{authorization-server,mcp-server}.log"
+echo "    Press Ctrl+C to stop everything (services + infra)."
+echo ""
+wait
+"""
