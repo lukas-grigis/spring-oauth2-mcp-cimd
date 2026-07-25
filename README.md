@@ -17,6 +17,10 @@
 </p>
 
 <p align="center">
+  <a href="https://lukasgrigis.dev/blog/spring-oauth2-mcp-cimd/"><strong>Read the companion blog post &rarr;</strong></a>
+</p>
+
+<p align="center">
   Companion repo: <a href="https://github.com/lukas-grigis/spring-oauth2-mcp"><code>spring-oauth2-mcp</code></a> — the DCR sibling of this demo: same stack, client registration instead of URL client_ids, and still the pragmatic path for clients that only speak DCR.
 </p>
 
