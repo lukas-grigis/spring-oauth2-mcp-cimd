@@ -140,6 +140,18 @@ metadata URL https://vscode.dev/oauth/client-metadata.json. Add this MCP server
 (http://localhost:9200/mcp) to VS Code and the authorization server resolves
 VS Code's document over HTTPS exactly the way it resolves the demo client's, then
 sends you through the same Keycloak login.
+
+Claude Code speaks CIMD too, but its published document declares portless loopback
+callbacks while it sends http://localhost:<port>/callback at runtime — which its own
+document does not list, so this server refuses it (RFC 8252 §7.3 grants the any-port
+exception to 127.0.0.1 / [::1], not to the name localhost). Point it at a matching
+document and a fixed port instead:
+
+    MCP_OAUTH_CLIENT_METADATA_URL=http://localhost/cimd-client/claude-code.json \
+      MCP_OAUTH_CALLBACK_PORT=3118 claude
+
+  then /mcp to authenticate, and log in as alice / alice. See the README section
+  "What about Claude Code?" for why this is the trust model working, not failing.
 EOF
 '''
 

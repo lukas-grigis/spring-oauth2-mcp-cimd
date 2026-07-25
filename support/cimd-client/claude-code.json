@@ -1,0 +1,16 @@
+{
+  "client_id": "http://localhost/cimd-client/claude-code.json",
+  "client_name": "Local identity document for Claude Code (demo)",
+  "redirect_uris": [
+    "http://localhost:3118/callback",
+    "http://127.0.0.1:3118/callback"
+  ],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "token_endpoint_auth_method": "none"
+}

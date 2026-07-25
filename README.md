@@ -164,6 +164,38 @@ one — it identifies itself with the metadata URL `https://vscode.dev/oauth/cli
 document over HTTPS exactly the way it resolves the demo client's, then sends you through the same
 Keycloak login.
 
+### What about Claude Code?
+
+Claude Code does speak CIMD — it publishes an identity document at
+`https://claude.ai/oauth/claude-code-client-metadata` and presents that URL as its `client_id`. This
+server accepts that identity: it fetches the document, validates it, and lets Claude Code in. The flow
+then fails one step later, on the redirect URI, and the reason is worth understanding because it is the
+whole CIMD trust model doing its job.
+
+Claude Code's published document declares **portless** loopback callbacks (`http://localhost/callback`,
+`http://127.0.0.1/callback`), but at runtime it listens on a random high port and sends
+`http://localhost:<port>/callback`. That is not in its own document, so the authorization server refuses
+it with a `400`. RFC 8252 §7.3 does require servers to allow *any* port for loopback redirects — but for
+the IP literals `127.0.0.1` / `[::1]`, not for the name `localhost`, which a hosts file or DNS can
+redirect away from the machine. Spring Authorization Server implements exactly that distinction, so
+`http://127.0.0.1:<port>/callback` would be accepted and `http://localhost:<port>/callback` is not.
+*(Observed with Claude Code 2.1.219, 2026-07; the callback template can change in any release.)*
+
+Claude Code can be pointed at a different identity document and a fixed port, which is all it takes to
+make its runtime behaviour and its published identity agree. This repo ships such a document
+([`support/cimd-client/claude-code.json`](support/cimd-client/claude-code.json), served alongside the
+demo client's) plus an [`.mcp.json`](.mcp.json) declaring the MCP server, so with the stack running:
+
+```bash
+MCP_OAUTH_CLIENT_METADATA_URL=http://localhost/cimd-client/claude-code.json \
+MCP_OAUTH_CALLBACK_PORT=3118 \
+claude
+```
+
+Then `/mcp` to authenticate, and log in as `alice` / `alice`. Note what did *not* happen: nothing was
+registered, and this server stored no client. Claude Code brought a URL, the server dereferenced it, and
+the redirect URI was honoured only because the document said so.
+
 ## Test users
 
 | User  | Password | Realm role | Scopes minted                           | Can call                              |
