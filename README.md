@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  Companion repo: <a href="https://github.com/lukas-grigis/spring-oauth2-mcp"><code>spring-oauth2-mcp</code></a> — the DCR-proxy reference this rebuild replaces.
+  Companion repo: <a href="https://github.com/lukas-grigis/spring-oauth2-mcp"><code>spring-oauth2-mcp</code></a> — the DCR sibling of this demo: same stack, client registration instead of URL client_ids, and still the pragmatic path for clients that only speak DCR.
 </p>
 
 ---
@@ -50,7 +50,7 @@ to end:
 
 ```mermaid
 flowchart LR
-    C["MCP client<br/>(headless e2e · VS Code)"]
+    C["MCP client<br/>(headless e2e · Claude Code)"]
 
     subgraph repo["this repository"]
         direction TB
@@ -158,11 +158,8 @@ mise run test:e2e   # the full flow, headless: URL client_id → fetch + validat
 At the time of writing, the MCP Inspector still obtains its client identity via Dynamic Client
 Registration: it POSTs to a registration endpoint instead of presenting a URL `client_id`. This server
 exposes no registration endpoint, so the Inspector can discover it but cannot complete the OAuth flow
-(`mise run inspector` prints the same honest status). Want a live interactive CIMD client? **VS Code** is
-one — it identifies itself with the metadata URL `https://vscode.dev/oauth/client-metadata.json`. Add
-`http://localhost:9200/mcp` as an MCP server in VS Code and the authorization server resolves VS Code's
-document over HTTPS exactly the way it resolves the demo client's, then sends you through the same
-Keycloak login.
+(`mise run inspector` prints the same honest status). For a live interactive CIMD client, use Claude
+Code — see below.
 
 ### What about Claude Code?
 
@@ -176,8 +173,9 @@ Claude Code's published document declares **portless** loopback callbacks (`http
 `http://127.0.0.1/callback`), but at runtime it listens on a random high port and sends
 `http://localhost:<port>/callback`. That is not in its own document, so the authorization server refuses
 it with a `400`. RFC 8252 §7.3 does require servers to allow *any* port for loopback redirects — but for
-the IP literals `127.0.0.1` / `[::1]`, not for the name `localhost`, which a hosts file or DNS can
-redirect away from the machine. Spring Authorization Server implements exactly that distinction, so
+the IP literals `127.0.0.1` / `[::1]` only; §8.3 recommends against the name `localhost`, which a hosts
+file or DNS can redirect away from the machine. Spring Authorization Server implements exactly that
+distinction, so
 `http://127.0.0.1:<port>/callback` would be accepted and `http://localhost:<port>/callback` is not.
 *(Observed with Claude Code 2.1.219, 2026-07; the callback template can change in any release.)*
 

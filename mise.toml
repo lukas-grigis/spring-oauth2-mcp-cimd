@@ -83,7 +83,7 @@ echo "$ASMETA" | grep -Eq '"client_id_metadata_document_supported"[[:space:]]*:[
 [ -n "$ASMETA" ] && ! echo "$ASMETA" | grep -q '"registration_endpoint"' && ok "no registration_endpoint in AS metadata (clients bring a URL client_id instead)" || no "registration_endpoint advertised (or AS metadata unreachable) — this server must not offer registration"
 REGCODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$AS/oauth2/register" -H 'Content-Type: application/json' -d '{"client_name":"probe","redirect_uris":["https://probe.invalid/cb"]}')"
 case "$REGCODE" in
-  4*) ok "POST /oauth2/register refused (HTTP $REGCODE) — registration is not merely unadvertised, the endpoint is not mounted" ;;
+  4*) ok "POST /oauth2/register refused (HTTP $REGCODE)" ;;
   *)  no "POST /oauth2/register → HTTP $REGCODE (expected 4xx; a live registration endpoint would undermine CIMD-only)" ;;
 esac
 echo "$OIDC" | grep -q 'ES256' && ok "ES256 advertised in OIDC metadata" || no "ES256 not advertised (RS256 default not overridden?)"
@@ -135,17 +135,13 @@ Watch the CIMD flow headlessly instead (mise run demo already runs it):
     alice / alice  (role: user ) → whoami, list_notes, create_note  ✓   purge_notes ✗ (needs note:admin)
     bob   / bob    (role: admin) → also purge_notes                 ✓
 
-Want a live interactive CIMD client? VS Code is one: it identifies itself with the
-metadata URL https://vscode.dev/oauth/client-metadata.json. Add this MCP server
-(http://localhost:9200/mcp) to VS Code and the authorization server resolves
-VS Code's document over HTTPS exactly the way it resolves the demo client's, then
-sends you through the same Keycloak login.
-
-Claude Code speaks CIMD too, but its published document declares portless loopback
-callbacks while it sends http://localhost:<port>/callback at runtime — which its own
-document does not list, so this server refuses it (RFC 8252 §7.3 grants the any-port
-exception to 127.0.0.1 / [::1], not to the name localhost). Point it at a matching
-document and a fixed port instead:
+Want a live interactive CIMD client? Claude Code speaks CIMD: it publishes its
+identity document at https://claude.ai/oauth/claude-code-client-metadata. That
+document declares portless loopback callbacks while Claude Code sends
+http://localhost:<port>/callback at runtime — which its own document does not
+list, so this server refuses it (RFC 8252 §7.3 grants the any-port exception to
+127.0.0.1 / [::1] only; §8.3 recommends against the name localhost). Point it at
+a matching document and a fixed port instead:
 
     MCP_OAUTH_CLIENT_METADATA_URL=http://localhost/cimd-client/claude-code.json \
       MCP_OAUTH_CALLBACK_PORT=3118 claude
