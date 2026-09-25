@@ -38,13 +38,14 @@
     <spring-ai.version>2.0.0</spring-ai.version>
 
     <!-- Spring AI Community "mcp-security" trio (github.com/spring-ai-community/mcp-security).
-         0.1.13 is built against Spring Boot 4.1.0 + Spring AI 2.0.0 + MCP SDK 2.0.0; Spring Boot 4.1.0
-         manages Spring Security 7.1.0 (which carries PR #18542, the resource-metadata support these
-         artifacts build on). NOTE: these are pre-1.0 community artifacts — bump Spring Boot / Spring AI /
-         MCP SDK / mcp-security together so the versions stay in lock-step.
+         0.1.14 is built against Spring Boot 4.1.0 + Spring AI 2.0.0 + MCP SDK 2.0.0 (same baseline as
+         0.1.13); Spring Boot 4.1.0 manages Spring Security 7.1.0 (which carries PR #18542, the
+         resource-metadata support these artifacts build on). NOTE: these are pre-1.0 community
+         artifacts — bump Spring Boot / Spring AI / MCP SDK / mcp-security together so the versions stay
+         in lock-step. Release notes: https://github.com/spring-ai-community/mcp-security/releases/tag/v0.1.14
          https://mvnrepository.com/artifact/org.springaicommunity/mcp-authorization-server-spring-boot -->
-    <mcp-authorization-server.version>0.1.13</mcp-authorization-server.version>
-    <mcp-server-security.version>0.1.13</mcp-server-security.version>
+    <mcp-authorization-server.version>0.1.14</mcp-authorization-server.version>
+    <mcp-server-security.version>0.1.14</mcp-server-security.version>
 
     <!-- BouncyCastle: Nimbus needs it to parse the ES256 signing-key PEM; not managed by the Boot BOM.
          https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
