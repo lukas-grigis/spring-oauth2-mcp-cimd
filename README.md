@@ -31,7 +31,11 @@
 The MCP authorization spec was revised on **2025-11-25**, and it changed how an MCP client obtains an
 OAuth client identity. **Client ID Metadata Documents became the preferred mechanism** — *"Authorization
 servers and MCP clients **SHOULD** support OAuth Client ID Metadata Documents"* — while **Dynamic Client
-Registration (RFC 7591) was demoted to MAY**, kept for backwards compatibility with earlier revisions.
+Registration (RFC 7591) was demoted to MAY**, kept for backwards compatibility with earlier revisions. The
+next revision, **2026-07-28**, went one step further and formally **deprecated DCR** in favour of CIMD: still
+a MAY, *"retained for backwards compatibility with authorization servers that do not support Client ID
+Metadata Documents"*
+([changelog](https://modelcontextprotocol.io/specification/2026-07-28/changelog)).
 
 Under CIMD nothing is registered and nothing is stored. The client names a URL as its `client_id`; the
 authorization server *fetches* that URL, reads the client's metadata (name, redirect URIs, auth method),
@@ -183,6 +187,14 @@ distinction, so
 `http://127.0.0.1:<port>/callback` would be accepted and `http://localhost:<port>/callback` is not.
 *(Observed with Claude Code 2.1.219, 2026-07; the callback template can change in any release.)*
 
+Since mcp-security 0.1.14 the library ships an **opt-in** escape hatch for exactly this client:
+`LocalhostWildcardPortValidator`, set via `mcpAuthorizationServer().authorizationCodeRequestValidator(...)`,
+lets the port vary when both the requested and the registered redirect URI use the host `localhost`
+([mcp-security#92](https://github.com/spring-ai-community/mcp-security/pull/92), fixing
+[#84](https://github.com/spring-ai-community/mcp-security/issues/84)). The default stays Spring
+Authorization Server's strict validator, and this repo deliberately keeps that default — relaxing it
+trades the RFC 8252 §8.3 protection for compatibility, which is your call, not the demo's.
+
 Claude Code can be pointed at a different identity document and a fixed port, which is all it takes to
 make its runtime behaviour and its published identity agree. This repo ships such a document
 ([`support/cimd-client/claude-code.json`](support/cimd-client/claude-code.json), served alongside the
@@ -295,7 +307,7 @@ and the CIMD fetch runs through an **address-filtered HTTP client** so a hostile
 the server at internal endpoints. Still — don't deploy this as-is; use it as a reference for the moving
 parts.
 
-> The `org.springaicommunity` MCP security artifacts are pre-1.0 (`0.1.13`); this repo runs them on
+> The `org.springaicommunity` MCP security artifacts are pre-1.0 (`0.1.14`); this repo runs them on
 > Spring Boot 4.1.0 / Spring Security 7.1.0 / Spring AI 2.0.0 / MCP SDK 2.0.0. Bump them together.
 
 ## Standards and sources

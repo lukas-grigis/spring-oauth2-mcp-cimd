@@ -21,6 +21,16 @@ it. Discovery (RFC 9728 / RFC 8414) and audience binding (RFC 8707) stayed at MU
 
 Source: [MCP authorization specification, 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
 
+**Update — 2026-07-28: DCR is formally deprecated.** The next revision keeps DCR at MAY but marks it
+deprecated. Verbatim from its client-registration section: _"Dynamic Client Registration is deprecated.
+New implementations should use Client ID Metadata Documents instead. This option remains available for
+backwards compatibility with authorization servers that do not support Client ID Metadata Documents."_
+The changelog lists it under "Deprecated" (spec PR #2858), and the same revision adopts a deprecation
+policy with a minimum twelve-month window before removal (SEP-2596).
+
+Sources: [MCP 2026-07-28 changelog](https://modelcontextprotocol.io/specification/2026-07-28/changelog),
+[client registration, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration).
+
 **This project implements CIMD:** its authorization server resolves an MCP client from the metadata
 document behind its URL `client_id` and exposes no registration endpoint. It does not implement DCR —
 that pattern lives in the companion repo,
@@ -108,6 +118,7 @@ point: the IdP is a configuration choice, and none of the client-identity machin
 ## All sources
 
 - [MCP authorization specification, 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+- [MCP specification 2026-07-28 changelog (DCR deprecated)](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 - [OAuth Client ID Metadata Document (CIMD), IETF draft](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)
 - [RFC 6749 — The OAuth 2.0 Authorization Framework](https://www.rfc-editor.org/rfc/rfc6749)
 - [RFC 7591 — OAuth 2.0 Dynamic Client Registration Protocol](https://www.rfc-editor.org/rfc/rfc7591)
