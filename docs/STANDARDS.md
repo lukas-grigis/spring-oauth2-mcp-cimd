@@ -51,7 +51,7 @@ Two things worth knowing about CIMD:
 - It is an **IETF draft, not a finished RFC.** The MCP 2025-11-25 spec references
   [
   `draft-ietf-oauth-client-id-metadata-document-00`](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/);
-  the working-group draft has since advanced to `-02` (2026-07-06) and is still active. Moving target.
+  the working-group draft has since advanced to `-03` (2026-11-02) and is still active. Moving target.
 - It carries its own risk: an authorization server fetching a **client-controlled URL** is an SSRF
   vector (the server can be steered at internal endpoints), and pinning trust to localhost redirect
   URIs invites localhost impersonation. The MCP spec calls this out in its CIMD security section.

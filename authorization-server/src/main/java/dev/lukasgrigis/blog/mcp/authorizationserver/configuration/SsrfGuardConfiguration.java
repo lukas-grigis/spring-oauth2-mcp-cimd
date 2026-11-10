@@ -16,7 +16,7 @@ import org.springframework.core.env.Environment;
  * <p>The guard is this single {@link InetAddressFilter} bean. The metadata-fetch HTTP client
  * enforces it at DNS-resolution time inside the Apache HttpComponents connection manager (see
  * {@code OAuth2StoreConfiguration#cimdMetadataRestClient}), so the filter vets the exact addresses
- * being connected to — redirect hops included:
+ * being connected to (redirects are not followed, as the CIMD draft requires):
  * <ul>
  *   <li><b>Always:</b> only externally-routable addresses pass. Private ranges (10/8, 172.16/12,
  *       192.168/16, fc00::/7), link-local (169.254/16, fe80::/10), loopback (127/8, ::1) and the
