@@ -4,6 +4,7 @@ import org.jspecify.annotations.NonNull;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.HttpClientSettings;
+import org.springframework.boot.http.client.HttpRedirects;
 import org.springframework.boot.http.client.InetAddressFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.http.converter.OAuth2ClientRegistrationHttpMessageConverter;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.time.Duration;
 import java.util.List;
@@ -147,8 +149,9 @@ class OAuth2StoreConfiguration {
      * The HTTP client behind the CIMD metadata fetch. Two deliberate choices:
      * <ul>
      *   <li><b>SSRF guard</b> — the {@link InetAddressFilter} is enforced inside the connection
-     *       manager's DNS resolver, so it vets the resolved addresses actually connected to,
-     *       redirect hops included. A refused host fails with
+     *       manager's DNS resolver, so it vets the resolved addresses actually connected to.
+     *       Redirects are not followed and any non-200 response is an error, as the CIMD draft
+     *       requires. A refused host fails with
      *       {@code org.springframework.boot.http.client.FilteredHostException} before any
      *       connection is attempted.</li>
      *   <li><b>Apache HttpComponents</b> — the same reason it is on the classpath at all (see
@@ -161,9 +164,17 @@ class OAuth2StoreConfiguration {
      */
     static RestClient cimdMetadataRestClient(InetAddressFilter addressFilter) {
         final var requestFactory = ClientHttpRequestFactoryBuilder.httpComponents()
-            .build(HttpClientSettings.defaults().withInetAddressFilter(addressFilter));
+            .build(HttpClientSettings.defaults()
+                .withInetAddressFilter(addressFilter)
+                .withRedirects(HttpRedirects.DONT_FOLLOW));
         return RestClient.builder()
             .requestFactory(requestFactory)
+            // The CIMD draft treats every non-200 response as an error. RestClient only rejects
+            // 4xx/5xx by default, so an unfollowed 3xx with a JSON body would still be parsed.
+            .defaultStatusHandler(status -> status.value() != 200, (request, response) -> {
+                throw new RestClientException(
+                    "CIMD metadata fetch returned HTTP " + response.getStatusCode().value());
+            })
             .configureMessageConverters(converters ->
                 converters.addCustomConverter(new OAuth2ClientRegistrationHttpMessageConverter()))
             .build();
